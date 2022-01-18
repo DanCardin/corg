@@ -30,9 +30,11 @@ cargo run --features cli -- --help
 Output:
 
 <!-- [[[#!/usr/bin/env bash
+echo
 echo '```'
 cargo run --features cli -- --help
 echo '```'
+echo
 ]]] -->
 
 ```
@@ -43,10 +45,10 @@ USAGE:
     corg [OPTIONS] <INPUT>
 
 ARGS:
-    <INPUT>
+    <INPUT>    The input file
 
 OPTIONS:
-        --check
+    -c, --check              Check that the files would not change if run again
     -d, --delete-block       Delete the generator code from the output file
     -e                       Warn if a file has no cog code in it
     -h, --help               Print help information
