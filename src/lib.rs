@@ -4,60 +4,109 @@ use std::io::Write;
 use std::path::PathBuf;
 
 mod error;
-mod options;
 mod state;
 
 pub use crate::error::CorgError;
-pub use crate::options::Options;
 use crate::state::Parser;
 
 pub struct Corg {
-    options: Options,
+    input: PathBuf,
+    output: Option<PathBuf>,
+    replace_input: bool,
+    delete_blocks: bool,
+    warn_if_no_blocks: bool,
+    omit_output: bool,
+    check_only: bool,
+
+    start_block_marker: String,
+    end_block_marker: String,
+    end_output_marker: String,
+}
+
+impl Default for Corg {
+    fn default() -> Self {
+        Self {
+            input: PathBuf::new(),
+            replace_input: false,
+            output: None,
+            delete_blocks: true,
+            warn_if_no_blocks: false,
+            omit_output: false,
+            check_only: false,
+
+            start_block_marker: "[[[#!".to_string(),
+            end_block_marker: "]]]".to_string(),
+            end_output_marker: "[[[end]]]".to_string(),
+        }
+    }
 }
 
 impl Corg {
-    pub fn new(options: Options) -> Self {
-        Self { options }
+    pub fn input(mut self, input: PathBuf) -> Self {
+        self.input = input;
+        self
+    }
+
+    pub fn output(mut self, output: Option<PathBuf>) -> Self {
+        self.output = output;
+        self
+    }
+
+    pub fn replace_input(mut self, replace_input: bool) -> Self {
+        self.replace_input = replace_input;
+        self
+    }
+
+    pub fn delete_blocks(mut self, delete_blocks: bool) -> Self {
+        self.delete_blocks = delete_blocks;
+        self
+    }
+
+    pub fn warn_if_no_blocks(mut self, warn_if_no_blocks: bool) -> Self {
+        self.warn_if_no_blocks = warn_if_no_blocks;
+        self
+    }
+
+    pub fn omit_output(mut self, omit_output: bool) -> Self {
+        self.omit_output = omit_output;
+        self
+    }
+
+    pub fn check_only(mut self, check_only: bool) -> Self {
+        self.check_only = check_only;
+        self
+    }
+
+    pub fn override_markers(
+        mut self,
+        start_block_marker: String,
+        end_block_marker: String,
+        end_output_marker: String,
+    ) -> Self {
+        self.start_block_marker = start_block_marker;
+        self.end_block_marker = end_block_marker;
+        self.end_output_marker = end_output_marker;
+        self
     }
 
     pub fn execute(&self) -> Result<(), CorgError> {
         let content = self.get_file_contents()?;
 
-        let result = Parser::evaluate(&content, &self.options)?;
+        let result = Parser::evaluate(&content, &self)?;
         let output = result.get_output();
 
-        if self.options.warn_if_no_blocks && !result.found_blocks() {
+        if self.warn_if_no_blocks && !result.found_blocks() {
             return Err(CorgError::NoBlocksDetected);
         }
 
-        if self.options.check && content != output {
+        if self.check_only && content != output {
             return Err(CorgError::CheckFailed((content, output.to_string())));
         }
 
-        self.output(output)?;
-        Ok(())
-    }
-
-    fn get_file_contents(&self) -> Result<String, CorgError> {
-        let mut buffer = String::new();
-
-        let path = &self.options.input;
-        if path == &PathBuf::from("-") {
-            std::io::stdin()
-                .read_to_string(&mut buffer)
-                .expect("Could not read stdin");
+        let out_file = if self.replace_input {
+            Some(&self.input)
         } else {
-            let mut file = File::open(&path)?;
-            file.read_to_string(&mut buffer)?;
-        }
-        Ok(buffer)
-    }
-
-    fn output(&self, processed_content: &str) -> Result<(), CorgError> {
-        let out_file = if self.options.replace {
-            Some(&self.options.input)
-        } else {
-            self.options.output.as_ref()
+            self.output.as_ref()
         };
 
         if let Some(out_file) = out_file {
@@ -68,12 +117,27 @@ impl Corg {
             }
 
             let mut file = File::create(out_file)?;
-            file.write_all(processed_content.as_bytes())?;
+            file.write_all(output.as_bytes())?;
         } else {
             let mut stdout = std::io::stdout();
-            stdout.write_all(processed_content.as_bytes())?;
+            stdout.write_all(output.as_bytes())?;
         };
 
         Ok(())
+    }
+
+    fn get_file_contents(&self) -> Result<String, CorgError> {
+        let mut buffer = String::new();
+
+        let path = &self.input;
+        if path == &PathBuf::from("-") {
+            std::io::stdin()
+                .read_to_string(&mut buffer)
+                .expect("Could not read stdin");
+        } else {
+            let mut file = File::open(&path)?;
+            file.read_to_string(&mut buffer)?;
+        }
+        Ok(buffer)
     }
 }

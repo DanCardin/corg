@@ -2,6 +2,7 @@
 
 A [cog-like](https://nedbatchelder.com/code/cog) tool, written in Rust.
 
+Cog, being written in python, integrates naturally with python
 The primary difference between Cog and Corg is how Corg executes code blocks.
 Being written in Rust, it cannot as easily assume specific python implementation
 details.
@@ -13,7 +14,7 @@ any available program, such as python, bash, etc!
 
 Given:
 
-<!-- [[[#!/usr/bin/env bash
+<!-- [[[#!bash
 echo
 cat example.md
 echo
@@ -39,7 +40,7 @@ echo
 
 ```
 corg 0.1.0
-A Cog-like tool
+A cog-like tool
 
 USAGE:
     corg [OPTIONS] <INPUT>
@@ -48,14 +49,26 @@ ARGS:
     <INPUT>    The input file
 
 OPTIONS:
-    -c, --check              Check that the files would not change if run again
-    -d, --delete-block       Delete the generator code from the output file
-    -e                       Warn if a file has no cog code in it
-    -h, --help               Print help information
-    -o, --output <OUTPUT>    Write the output to a file instead of stdout
-    -r, --replace            Write the output to the original input file, supercedes `--output`
-    -V, --version            Print version information
-    -x, --omit-output        Omit all the generated output without running the generators
+    -c, --check                Check that the files would not change if run again
+    -d, --delete-blocks        Delete the generator code from the output file
+    -e                         Warn if a file has no cog code in it
+    -h, --help                 Print help information
+        --markers <MARKERS>    The patterns surrounding cog inline instructions. Should include
+                               three values separated by spaces, the start, end, and end-output
+                               markers
+    -o, --output <OUTPUT>      Write the output to a file instead of stdout
+    -r, --replace              Write the output to the original input file, supercedes `--output`
+        --raw                  Read the
+    -V, --version              Print version information
+    -x, --omit-output          Omit all the generated output without running the generators
+```
+
+                               markers. Defaults to '[[[#! ]]] [[[end]]]'
+    -o, --output <OUTPUT>      Write the output to a file instead of stdout
+    -r, --replace              Write the output to the original input file, supercedes `--output`
+        --raw                  Read the
+    -V, --version              Print version information
+    -x, --omit-output          Omit all the generated output without running the generators
 ```
 
 <!-- [[[end]]] -->

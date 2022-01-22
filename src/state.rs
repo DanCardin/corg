@@ -4,33 +4,37 @@ use std::mem;
 use std::process::{Command, Stdio};
 use std::str::Lines;
 
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::error::CorgError;
-use crate::options::Options;
-
-lazy_static! {
-    static ref RE_START_BLOCK: Regex = Regex::new(r".*\[\[\[\#!(.*)$").unwrap();
-    static ref RE_END_BLOCK: Regex = Regex::new(r"\]\]\](.*)").unwrap();
-    static ref RE_END_OUTPUT: Regex = Regex::new(r"^.*\[\[\[\s*end\s*\]\]\].*$").unwrap();
-}
+use crate::Corg;
 
 pub struct Parser;
 
 impl Parser {
-    pub fn evaluate(input: &str, options: &Options) -> Result<OutputState, CorgError> {
+    pub fn evaluate(input: &str, corg: &Corg) -> Result<OutputState, CorgError> {
         let mut input: Peekable<Lines> = input.lines().peekable();
+
+        let raw_re_start_block = format!("^.*{}(.*)$", regex::escape(&corg.start_block_marker));
+        let re_start_block: Regex = Regex::new(&raw_re_start_block).unwrap();
+
+        let raw_re_end_block = format!("^.*{}.*$", regex::escape(&corg.end_block_marker));
+        let re_end_block: Regex = Regex::new(&raw_re_end_block).unwrap();
+
+        let raw_re_end_output = format!("^.*{}.*$", regex::escape(&corg.end_output_marker));
+        let re_end_output: Regex = Regex::new(&raw_re_end_output).unwrap();
 
         let mut state = ParseStates::default();
         loop {
             state = match state {
-                ParseStates::RawText(raw_text) => raw_text.consume_raw_text(&mut input),
+                ParseStates::RawText(raw_text) => {
+                    raw_text.consume_raw_text(&mut input, &re_start_block)
+                }
                 ParseStates::CodePending(code_pending) => {
-                    code_pending.consume_code(&mut input, options)
+                    code_pending.consume_code(&mut input, &re_start_block, &re_end_block, corg)
                 }
                 ParseStates::OutputPending(output_pending) => {
-                    output_pending.produce_output(&mut input, options)?
+                    output_pending.produce_output(&mut input, &re_end_output, corg)?
                 }
                 ParseStates::Done(state) => return Ok(state),
             }
@@ -98,10 +102,14 @@ struct RawText {
 }
 
 impl RawText {
-    fn consume_raw_text(mut self, input: &mut Peekable<Lines>) -> ParseStates {
+    fn consume_raw_text(
+        mut self,
+        input: &mut Peekable<Lines>,
+        re_start_block: &Regex,
+    ) -> ParseStates {
         loop {
             if let Some(line) = input.peek() {
-                if RE_START_BLOCK.is_match(line) {
+                if re_start_block.is_match(line) {
                     return ParseStates::code_pending(self.state);
                 }
             } else {
@@ -119,13 +127,19 @@ struct CodePending {
 }
 
 impl CodePending {
-    fn consume_code(mut self, input: &mut Peekable<Lines>, options: &Options) -> ParseStates {
+    fn consume_code(
+        mut self,
+        input: &mut Peekable<Lines>,
+        re_start_block: &Regex,
+        re_end_block: &Regex,
+        corg: &Corg,
+    ) -> ParseStates {
         self.state.blocks_found = true;
 
         let line = input.next().unwrap();
-        let captures = RE_START_BLOCK.captures(line).unwrap();
+        let captures = re_start_block.captures(line).unwrap();
         let shebang = captures[1].to_string();
-        self.add_meta_line(options, line);
+        self.add_meta_line(corg, line);
 
         let mut code = String::new();
 
@@ -135,9 +149,9 @@ impl CodePending {
                 None => return ParseStates::done(self.state),
             };
 
-            self.add_meta_line(options, &line);
+            self.add_meta_line(corg, &line);
 
-            if RE_END_BLOCK.is_match(&line) {
+            if re_end_block.is_match(&line) {
                 return ParseStates::output_pending(self.state, shebang, code);
             }
 
@@ -146,8 +160,8 @@ impl CodePending {
         }
     }
 
-    fn add_meta_line(&mut self, options: &Options, line: &str) {
-        if !options.delete_block {
+    fn add_meta_line(&mut self, corg: &Corg, line: &str) {
+        if !corg.delete_blocks {
             self.state.output.push_str(&format!("{line}\n"));
         }
     }
@@ -163,7 +177,8 @@ impl OutputPending {
     fn produce_output(
         mut self,
         input: &mut Peekable<Lines>,
-        options: &Options,
+        re_end_output: &Regex,
+        corg: &Corg,
     ) -> Result<ParseStates, CorgError> {
         loop {
             let line = match input.next() {
@@ -175,13 +190,13 @@ impl OutputPending {
                 }
             };
 
-            if RE_END_OUTPUT.is_match(line) {
-                if !options.omit_output {
+            if re_end_output.is_match(line) {
+                if !corg.omit_output {
                     let output = self.execute_code_block()?;
                     self.state.output.push_str(&output);
                 }
 
-                if !options.delete_block {
+                if !corg.delete_blocks {
                     self.state.output.push_str(&format!("{line}\n"));
                 }
 
@@ -191,12 +206,16 @@ impl OutputPending {
     }
 
     fn execute_code_block(&self) -> Result<String, CorgError> {
-        let mut parts = self.shebang.split(' ');
-        let (program, args) = if let Some(first_part) = parts.next() {
-            (first_part, parts.collect())
-        } else {
-            (self.shebang.as_str(), vec![])
-        };
+        let (program, args) = shlex::split(&self.shebang)
+            .and_then(|parts| {
+                let mut iter = parts.into_iter();
+                if let Some(program) = iter.next() {
+                    Some((program, iter.collect()))
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| (self.shebang.clone(), vec![]));
 
         let mut child = Command::new(program)
             .args(args)
