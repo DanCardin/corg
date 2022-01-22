@@ -21,7 +21,10 @@ impl Parser {
         let raw_re_end_block = format!("^.*{}.*$", regex::escape(&corg.end_block_marker));
         let re_end_block: Regex = Regex::new(&raw_re_end_block).unwrap();
 
-        let raw_re_end_output = format!("^.*{}.*$", regex::escape(&corg.end_output_marker));
+        let raw_re_end_output = format!(
+            r"^(.*)({}) (?:\(checksum: ([a-z0-9]+)\))?\s+(.*?)$",
+            regex::escape(&corg.end_output_marker)
+        );
         let re_end_output: Regex = Regex::new(&raw_re_end_output).unwrap();
 
         let mut state = ParseStates::default();
@@ -190,14 +193,38 @@ impl OutputPending {
                 }
             };
 
-            if re_end_output.is_match(line) {
+            if let Some(capture) = re_end_output.captures(line) {
+                let mut output = "".to_string();
                 if !corg.omit_output {
-                    let output = self.execute_code_block()?;
+                    output = self.execute_code_block()?;
                     self.state.output.push_str(&output);
                 }
 
                 if !corg.delete_blocks {
-                    self.state.output.push_str(&format!("{line}\n"));
+                    let before = capture[1].to_string();
+                    let output_marker = capture[2].to_string();
+                    let after = capture[4].to_string();
+
+                    if corg.checksum {
+                        let new_checksum = format!("{:x}", md5::compute(output));
+
+                        if let Some(old_checksum) = capture.get(3) {
+                            let old_checksum = old_checksum.as_str().to_string();
+                            if new_checksum != old_checksum {
+                                return Err(CorgError::ChecksumMismatch((
+                                    old_checksum,
+                                    new_checksum,
+                                )));
+                            }
+                        }
+                        self.state.output.push_str(&format!(
+                            "{before}{output_marker} (checksum: {new_checksum}) {after}\n"
+                        ));
+                    } else {
+                        self.state
+                            .output
+                            .push_str(&format!("{before}{output_marker} {after}\n"));
+                    }
                 }
 
                 return Ok(ParseStates::raw_text(self.state));

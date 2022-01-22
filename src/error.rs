@@ -13,4 +13,7 @@ pub enum CorgError {
 
     #[error("Generated dutput did not match the existing content")]
     CheckFailed((String, String)),
+
+    #[error("Output has been edited! Delete old checksum to unprotect.")]
+    ChecksumMismatch((String, String)),
 }

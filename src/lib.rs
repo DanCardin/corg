@@ -17,6 +17,7 @@ pub struct Corg {
     warn_if_no_blocks: bool,
     omit_output: bool,
     check_only: bool,
+    checksum: bool,
 
     start_block_marker: String,
     end_block_marker: String,
@@ -33,6 +34,7 @@ impl Default for Corg {
             warn_if_no_blocks: false,
             omit_output: false,
             check_only: false,
+            checksum: false,
 
             start_block_marker: "[[[#!".to_string(),
             end_block_marker: "]]]".to_string(),
@@ -42,41 +44,55 @@ impl Default for Corg {
 }
 
 impl Corg {
+    #[must_use]
     pub fn input(mut self, input: PathBuf) -> Self {
         self.input = input;
         self
     }
 
+    #[must_use]
     pub fn output(mut self, output: Option<PathBuf>) -> Self {
         self.output = output;
         self
     }
 
+    #[must_use]
     pub fn replace_input(mut self, replace_input: bool) -> Self {
         self.replace_input = replace_input;
         self
     }
 
+    #[must_use]
     pub fn delete_blocks(mut self, delete_blocks: bool) -> Self {
         self.delete_blocks = delete_blocks;
         self
     }
 
+    #[must_use]
     pub fn warn_if_no_blocks(mut self, warn_if_no_blocks: bool) -> Self {
         self.warn_if_no_blocks = warn_if_no_blocks;
         self
     }
 
+    #[must_use]
     pub fn omit_output(mut self, omit_output: bool) -> Self {
         self.omit_output = omit_output;
         self
     }
 
+    #[must_use]
     pub fn check_only(mut self, check_only: bool) -> Self {
         self.check_only = check_only;
         self
     }
 
+    #[must_use]
+    pub fn checksum(mut self, checksum: bool) -> Self {
+        self.checksum = checksum;
+        self
+    }
+
+    #[must_use]
     pub fn override_markers(
         mut self,
         start_block_marker: String,

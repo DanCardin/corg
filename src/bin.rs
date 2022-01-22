@@ -43,18 +43,18 @@ pub struct Options {
     pub omit_output: bool,
 
     /// Check that the files would not change if run again
-    #[cfg_attr(feature = "cli", clap(long, short))]
+    #[cfg_attr(feature = "cli", clap(long))]
     pub check: bool,
+
+    /// Checksum the output to protect it against accidental change
+    #[cfg_attr(feature = "cli", clap(long, short))]
+    pub checksum: bool,
 
     /// The patterns surrounding cog inline instructions. Should
     /// include three values separated by spaces, the start, end,
-    /// and end-output markers.
+    /// and end-output markers
     #[cfg_attr(feature = "cli", clap(long, parse(try_from_str = parse_markers)))]
     pub markers: Option<(String, String, String)>,
-
-    /// Read the
-    #[cfg_attr(feature = "cli", clap(long))]
-    pub raw: bool,
 }
 
 pub fn parse_markers(s: &str) -> Result<(String, String, String)> {
@@ -79,7 +79,8 @@ fn main() -> Result<(), CorgError> {
         .delete_blocks(options.delete_blocks)
         .warn_if_no_blocks(options.warn_if_no_blocks)
         .omit_output(options.omit_output)
-        .check_only(options.check);
+        .check_only(options.check)
+        .checksum(options.checksum);
 
     corg = if options.replace {
         corg.replace_input(options.replace)
@@ -114,6 +115,7 @@ fn main() -> Result<(), CorgError> {
                     }
                     5
                 }
+                CorgError::ChecksumMismatch(_) => 7,
             }
         }
     };
