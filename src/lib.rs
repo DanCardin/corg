@@ -88,7 +88,7 @@ impl Corg {
     }
 
     pub fn execute(&self, content: &str) -> Result<String, CorgError> {
-        let result = Parser::evaluate(content, &self)?;
+        let result = Parser::evaluate(content, self)?;
         let output = result.get_output();
 
         if self.warn_if_no_blocks && !result.found_blocks() {
@@ -171,7 +171,7 @@ impl CorgRunner {
     fn get_file_contents(&self, path: &Path) -> Result<String, CorgError> {
         let mut buffer = String::new();
 
-        if path == &PathBuf::from("-") {
+        if path == PathBuf::from("-") {
             std::io::stdin()
                 .read_to_string(&mut buffer)
                 .expect("Could not read stdin");

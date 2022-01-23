@@ -258,11 +258,7 @@ impl OutputPending {
         let (program, args) = shlex::split(&self.shebang)
             .and_then(|parts| {
                 let mut iter = parts.into_iter();
-                if let Some(program) = iter.next() {
-                    Some((program, iter.collect()))
-                } else {
-                    None
-                }
+                iter.next().map(|program| (program, iter.collect()))
             })
             .unwrap_or_else(|| (self.shebang.clone(), vec![]));
 
