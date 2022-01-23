@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 
 mod error;
@@ -10,9 +11,6 @@ pub use crate::error::CorgError;
 use crate::state::Parser;
 
 pub struct Corg {
-    input: PathBuf,
-    output: Option<PathBuf>,
-    replace_input: bool,
     delete_blocks: bool,
     warn_if_no_blocks: bool,
     omit_output: bool,
@@ -29,10 +27,7 @@ pub struct Corg {
 impl Default for Corg {
     fn default() -> Self {
         Self {
-            input: PathBuf::new(),
-            replace_input: false,
-            output: None,
-            delete_blocks: true,
+            delete_blocks: false,
             warn_if_no_blocks: false,
             omit_output: false,
             check_only: false,
@@ -48,24 +43,6 @@ impl Default for Corg {
 }
 
 impl Corg {
-    #[must_use]
-    pub fn input(mut self, input: PathBuf) -> Self {
-        self.input = input;
-        self
-    }
-
-    #[must_use]
-    pub fn output(mut self, output: Option<PathBuf>) -> Self {
-        self.output = output;
-        self
-    }
-
-    #[must_use]
-    pub fn replace_input(mut self, replace_input: bool) -> Self {
-        self.replace_input = replace_input;
-        self
-    }
-
     #[must_use]
     pub fn delete_blocks(mut self, delete_blocks: bool) -> Self {
         self.delete_blocks = delete_blocks;
@@ -110,10 +87,8 @@ impl Corg {
         self
     }
 
-    pub fn execute(&self) -> Result<(), CorgError> {
-        let content = self.get_file_contents()?;
-
-        let result = Parser::evaluate(&content, &self)?;
+    pub fn execute(&self, content: &str) -> Result<String, CorgError> {
+        let result = Parser::evaluate(content, &self)?;
         let output = result.get_output();
 
         if self.warn_if_no_blocks && !result.found_blocks() {
@@ -121,9 +96,55 @@ impl Corg {
         }
 
         if self.check_only && content != output {
-            return Err(CorgError::CheckFailed((content, output.to_string())));
+            return Err(CorgError::CheckFailed((
+                content.to_string(),
+                output.to_string(),
+            )));
         }
 
+        Ok(output.to_string())
+    }
+}
+
+pub struct CorgRunner {
+    input: PathBuf,
+    output: Option<PathBuf>,
+    replace_input: bool,
+}
+
+impl Default for CorgRunner {
+    fn default() -> Self {
+        Self {
+            input: PathBuf::new(),
+            output: None,
+            replace_input: false,
+        }
+    }
+}
+
+impl CorgRunner {
+    #[must_use]
+    pub fn input(mut self, input: PathBuf) -> Self {
+        self.input = input;
+        self
+    }
+
+    #[must_use]
+    pub fn output(mut self, output: Option<PathBuf>) -> Self {
+        self.output = output;
+        self
+    }
+
+    #[must_use]
+    pub fn replace_input(mut self, replace_input: bool) -> Self {
+        self.replace_input = replace_input;
+        self
+    }
+
+    pub fn execute(&self, corg: &Corg) -> Result<String, CorgError> {
+        let content = self.get_file_contents(&self.input)?;
+
+        let output = corg.execute(&content)?;
         let out_file = if self.replace_input {
             Some(&self.input)
         } else {
@@ -144,13 +165,12 @@ impl Corg {
             stdout.write_all(output.as_bytes())?;
         };
 
-        Ok(())
+        Ok(output)
     }
 
-    fn get_file_contents(&self) -> Result<String, CorgError> {
+    fn get_file_contents(&self, path: &Path) -> Result<String, CorgError> {
         let mut buffer = String::new();
 
-        let path = &self.input;
         if path == &PathBuf::from("-") {
             std::io::stdin()
                 .read_to_string(&mut buffer)

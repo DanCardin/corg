@@ -10,7 +10,7 @@ use colored::Colorize;
 #[cfg(feature = "cli")]
 use difference::{Changeset, Difference};
 
-use corg::{Corg, CorgError};
+use corg::{Corg, CorgError, CorgRunner};
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -18,7 +18,7 @@ use std::path::PathBuf;
 #[derive(Debug)]
 #[cfg_attr(feature = "cli", derive(Parser))]
 #[cfg_attr(feature = "cli", clap(author, version, about))]
-pub struct Options {
+pub struct Cli {
     /// The input file
     pub input: PathBuf,
 
@@ -73,29 +73,27 @@ pub fn parse_markers(s: &str) -> Result<(String, String, String)> {
 }
 
 fn main() -> Result<(), CorgError> {
-    let options = Options::parse();
-    let mut corg = Corg::default()
-        .input(options.input)
-        .delete_blocks(options.delete_blocks)
-        .warn_if_no_blocks(options.warn_if_no_blocks)
-        .omit_output(options.omit_output)
-        .check_only(options.check);
+    let cli = Cli::parse();
+    let mut options = Corg::default()
+        .delete_blocks(cli.delete_blocks)
+        .warn_if_no_blocks(cli.warn_if_no_blocks)
+        .omit_output(cli.omit_output)
+        .check_only(cli.check);
 
     if cfg!(feature = "cli") {
-        corg = corg.checksum(options.checksum);
+        options = options.checksum(cli.checksum);
     }
 
-    corg = if options.replace {
-        corg.replace_input(options.replace)
-    } else {
-        corg.output(options.output)
-    };
-
-    if let Some(markers) = options.markers {
-        corg = corg.override_markers(markers.0, markers.1, markers.2)
+    if let Some(markers) = cli.markers {
+        options = options.override_markers(markers.0, markers.1, markers.2)
     }
 
-    let exit_code = match corg.execute() {
+    let corg_runner = CorgRunner::default()
+        .input(cli.input)
+        .replace_input(cli.replace)
+        .output(cli.output);
+
+    let exit_code = match corg_runner.execute(&options) {
         Ok(_) => 0,
         Err(e) => {
             eprintln!("{}", e.to_string().red());

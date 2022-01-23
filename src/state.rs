@@ -22,7 +22,7 @@ impl Parser {
         let re_end_block: Regex = Regex::new(&raw_re_end_block).unwrap();
 
         let raw_re_end_output = format!(
-            r"^(.*)({}) (?:\(checksum: ([a-z0-9]+)\))?\s+(.*?)$",
+            r"^(.*)({})\s*(?:\(checksum: ([a-z0-9]+)\))?\s*(.*?)$",
             regex::escape(&corg.end_output_marker)
         );
         let re_end_output: Regex = Regex::new(&raw_re_end_output).unwrap();
@@ -45,6 +45,7 @@ impl Parser {
     }
 }
 
+#[derive(Debug)]
 pub struct OutputState {
     output: String,
     blocks_found: bool,
@@ -60,6 +61,7 @@ impl OutputState {
     }
 }
 
+#[derive(Debug)]
 enum ParseStates {
     RawText(RawText),
     CodePending(CodePending),
@@ -100,6 +102,7 @@ impl Default for ParseStates {
     }
 }
 
+#[derive(Debug)]
 struct RawText {
     state: OutputState,
 }
@@ -125,6 +128,7 @@ impl RawText {
     }
 }
 
+#[derive(Debug)]
 struct CodePending {
     state: OutputState,
 }
@@ -170,6 +174,7 @@ impl CodePending {
     }
 }
 
+#[derive(Debug)]
 struct OutputPending {
     state: OutputState,
     shebang: String,
@@ -209,7 +214,7 @@ impl OutputPending {
 
                     self.state
                         .output
-                        .push_str(&format!("{before}{output_marker}{checksum_part} {after}\n"));
+                        .push_str(&format!("{before}{output_marker}{checksum_part}{after}\n"));
                 }
 
                 return Ok(ParseStates::raw_text(self.state));
@@ -243,7 +248,7 @@ impl OutputPending {
                     return Err(CorgError::ChecksumMismatch((old_checksum, new_checksum)));
                 }
             }
-            format!(" (checksum: {new_checksum})")
+            format!(" (checksum: {new_checksum}) ")
         } else {
             String::new()
         })
