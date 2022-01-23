@@ -20,7 +20,7 @@ jobs:
           toolchain: stable
 
       - name: Build
-        run: cargo build --release --locked && strip target/release/corg && mv target/release/corg target/release/corg_amd64
+        run: cargo build --features cli --release --locked && strip target/release/corg && mv target/release/corg target/release/corg_amd64
 
       - name: Release
         uses: softprops/action-gh-release@v1
@@ -44,7 +44,7 @@ jobs:
           toolchain: stable
 
       - name: Build
-        run: cargo build --release --locked
+        run: cargo build --features cli --release --locked
 
       - name: Release
         uses: softprops/action-gh-release@v1
@@ -69,7 +69,7 @@ jobs:
           target: x86_64-apple-darwin
 
       - name: Build for mac
-        run: cargo build --release --locked && strip target/release/corg && mv target/release/corg target/release/corg_darwin
+        run: cargo build --features cli --release --locked && strip target/release/corg && mv target/release/corg target/release/corg_darwin
 
       - name: Release
         uses: softprops/action-gh-release@v1
