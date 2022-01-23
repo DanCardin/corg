@@ -18,9 +18,6 @@ Straight from Ned:
 
 > Cog is a file generation tool. It lets you use pieces of Python code as generators in your source files to generate whatever text you need.
 
-Being written in python, Cog naturally executes python and integrates more deeply
-with it than is possible here.
-
 Instead, Corg allows one to choose any executable (python, bash, etc) which
 accepts piped input. Shown below, Corg uses a shebang-looking mechanism instead.
 
@@ -68,7 +65,11 @@ cargo install corg --features=cli
 
 ## CLI
 
-Using itself to produce output below!
+The CLI maintains CLI compatibility with `cog` to the extent which makes sense.
+Cog exposes a number of options which are only applicable for to its python
+implementation, which `corg` does not currently implement.
+
+As mentioned above, `corg` itself, is used to produce output below!
 
 <!-- [[[#!/usr/bin/env bash
 echo
