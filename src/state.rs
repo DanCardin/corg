@@ -1,10 +1,10 @@
+use regex::{Match, Regex};
+
 use std::io::Write;
 use std::iter::Peekable;
 use std::mem;
 use std::process::{Command, Stdio};
 use std::str::Lines;
-
-use regex::Regex;
 
 use crate::error::CorgError;
 use crate::Corg;
@@ -194,9 +194,8 @@ impl OutputPending {
             };
 
             if let Some(capture) = re_end_output.captures(line) {
-                let mut output = "".to_string();
+                let output = self.execute_code_block()?;
                 if !corg.omit_output {
-                    output = self.execute_code_block()?;
                     self.state.output.push_str(&output);
                 }
 
@@ -204,32 +203,50 @@ impl OutputPending {
                     let before = capture[1].to_string();
                     let output_marker = capture[2].to_string();
                     let after = capture[4].to_string();
+                    let checksum_capture = capture.get(3);
 
-                    if corg.checksum {
-                        let new_checksum = format!("{:x}", md5::compute(output));
+                    let checksum_part = self.output_checksum(corg, output, checksum_capture)?;
 
-                        if let Some(old_checksum) = capture.get(3) {
-                            let old_checksum = old_checksum.as_str().to_string();
-                            if new_checksum != old_checksum {
-                                return Err(CorgError::ChecksumMismatch((
-                                    old_checksum,
-                                    new_checksum,
-                                )));
-                            }
-                        }
-                        self.state.output.push_str(&format!(
-                            "{before}{output_marker} (checksum: {new_checksum}) {after}\n"
-                        ));
-                    } else {
-                        self.state
-                            .output
-                            .push_str(&format!("{before}{output_marker} {after}\n"));
-                    }
+                    self.state
+                        .output
+                        .push_str(&format!("{before}{output_marker}{checksum_part} {after}\n"));
                 }
 
                 return Ok(ParseStates::raw_text(self.state));
             }
         }
+    }
+
+    #[cfg(not(feature = "checksum"))]
+    fn output_checksum(
+        &self,
+        _corg: &Corg,
+        _output: String,
+        _checksum_capture: Option<Match>,
+    ) -> Result<String, CorgError> {
+        Ok(String::new())
+    }
+
+    #[cfg(feature = "checksum")]
+    fn output_checksum(
+        &self,
+        corg: &Corg,
+        output: String,
+        checksum_capture: Option<Match>,
+    ) -> Result<String, CorgError> {
+        Ok(if corg.checksum {
+            let new_checksum = format!("{:x}", md5::compute(output));
+
+            if let Some(old_checksum) = checksum_capture {
+                let old_checksum = old_checksum.as_str().to_string();
+                if new_checksum != old_checksum {
+                    return Err(CorgError::ChecksumMismatch((old_checksum, new_checksum)));
+                }
+            }
+            format!(" (checksum: {new_checksum})")
+        } else {
+            String::new()
+        })
     }
 
     fn execute_code_block(&self) -> Result<String, CorgError> {

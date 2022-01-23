@@ -79,8 +79,11 @@ fn main() -> Result<(), CorgError> {
         .delete_blocks(options.delete_blocks)
         .warn_if_no_blocks(options.warn_if_no_blocks)
         .omit_output(options.omit_output)
-        .check_only(options.check)
-        .checksum(options.checksum);
+        .check_only(options.check);
+
+    if cfg!(feature = "cli") {
+        corg = corg.checksum(options.checksum);
+    }
 
     corg = if options.replace {
         corg.replace_input(options.replace)

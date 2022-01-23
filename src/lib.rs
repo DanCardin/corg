@@ -17,6 +17,8 @@ pub struct Corg {
     warn_if_no_blocks: bool,
     omit_output: bool,
     check_only: bool,
+
+    #[cfg(feature = "checksum")]
     checksum: bool,
 
     start_block_marker: String,
@@ -34,6 +36,8 @@ impl Default for Corg {
             warn_if_no_blocks: false,
             omit_output: false,
             check_only: false,
+
+            #[cfg(feature = "checksum")]
             checksum: false,
 
             start_block_marker: "[[[#!".to_string(),
@@ -87,6 +91,7 @@ impl Corg {
     }
 
     #[must_use]
+    #[cfg(feature = "checksum")]
     pub fn checksum(mut self, checksum: bool) -> Self {
         self.checksum = checksum;
         self
